@@ -1,3 +1,5 @@
+/*jslint node: true */
+
 /** File Name: node_modules/railway-pagination/index.js
 * Purpose: railway-pagination main file.
 * Original author: Anatoliy C.
@@ -27,7 +29,23 @@ exports.init = function (compound) {
 };
 
 // global view helper
-function paginateHelper(collection,step) {
+function paginateHelper(collection, step) {
+
+    var self = this;
+
+    function getUrl (page) {
+        var params = self.request.query;
+        var url = '?';
+        params.page = page;
+        console.log(params);
+        for (var param in params) {
+            if (params.hasOwnProperty(param)) {
+                url += param + '=' + params[param] + '&';
+            }
+        }
+        return url.slice(0, -1);
+    }
+
     if (!step) step = 5;
     if (!collection.totalPages || collection.totalPages < 2) return '';
     var page = parseInt(collection.currentPage, 10);
@@ -36,8 +54,8 @@ function paginateHelper(collection,step) {
     var prevClass = 'prev' + (page === 1 ? ' disabled': '');
     var nextClass = 'next' + (page === pages ? ' disabled': '');
     html += '<ul><li class="' + prevClass + '">';
-    html += this.link_to('&larr; First', (page === 1) ? '#' : '?page=1');
-    html += this.link_to('&larr; Previous', (page === 1) ? '#' : ('?page=' + (page - 1)));
+    html += this.link_to('&larr; First', (page === 1) ? '#' : getUrl(1));
+    html += this.link_to('&larr; Previous', (page === 1) ? '#' : getUrl(page - 1));
     html += '</li>';
 
     var start = ( page <= step ) ? 1 : page-step;
@@ -66,12 +84,12 @@ function paginateHelper(collection,step) {
         if (i == page) {
             html += '<li class="active"><a href="#">' + i + '</a></li>';
         } else {
-            html += '<li>' + this.link_to(i, '?page=' + i) + '</li>';
+            html += '<li>' + this.link_to(i, getUrl(i)) + '</li>';
         }
     }
     html += '<li class="' + nextClass + '">';
-    html += this.link_to('Next &rarr;', (page === pages) ? '#' : '?page=' + (page + 1));
-    html += this.link_to('Last &rarr;', (page === pages) ? '#' : '?page=' + pages);
+    html += this.link_to('Next &rarr;', (page === pages) ? '#' : getUrl(page + 1));
+    html += this.link_to('Last &rarr;', (page === pages) ? '#' : getUrl(pages));
     html += '</li></ul></div>';
     return html;
 };
@@ -83,8 +101,20 @@ function paginateCollection(opts, callback) {
     var order = opts.order||'1';
     var where = opts.where;
     var Model = this;
+    var countConditions = {};
 
-    Model.count(function (err, totalRecords) {
+    function isEmpty( o ) {
+        for ( var p in o ) { 
+            if ( o.hasOwnProperty( p ) ) { return false; }
+        }
+        return true;
+    }
+
+    if (!isEmpty(where)) {
+        countConditions = where;
+    }
+
+    Model.count(countConditions, function (err, totalRecords) {
         if (where != null) {
             Model.all({limit: limit, offset: (page - 1) * limit, order: order, where: where }, function (err, records) {
                 if (err) return callback(err);
